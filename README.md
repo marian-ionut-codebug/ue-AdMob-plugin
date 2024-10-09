@@ -96,3 +96,5 @@ Index value 1 is for Interstitial.
 Index value 2 is for Reward.
 
 > That’s all and thanks for your careful reading.
+
+[![](https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=XXX)
