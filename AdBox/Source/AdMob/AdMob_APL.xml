@@ -1,0 +1,402 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--AdBox plugin additions-->
+<root xmlns:android="http://schemas.android.com/apk/res/android">
+  <androidManifestUpdates>
+    <addElements tag="application">
+      <activity android:name="com.isaratech.androidapi.AndroidAPITemplateActivity" android:configChanges="keyboard|keyboardHidden|screenLayout|screenSize|orientation" android:label="@string/app_name" />
+      <meta-data android:name="com.google.android.gms.ads.APPLICATION_ID" android:value="ca-app-pub-3940256099942544~3347511713"/>
+    </addElements>
+  </androidManifestUpdates>
+  <!-- optional additions to proguard -->
+  <proguardAdditions>
+    <insert><![CDATA[
+      -keepattributes Signature
+      -dontskipnonpubliclibraryclassmembers
+
+     -keepclassmembers class com.epicgames.ue4.GameActivity {
+            public <methods>;
+            public <fields>;
+     }
+    ]]>    </insert>
+  </proguardAdditions>
+  <buildGradleAdditions>
+    <insert>
+      dependencies {
+        implementation "com.google.android.gms:play-services-ads:22.3.0"
+        implementation "androidx.annotation:annotation:1.0.0"
+      }
+    </insert>
+  </buildGradleAdditions>
+  <gameActivityImportAdditions>
+    <insert>
+      import android.os.Build.VERSION;
+      import android.os.Build.VERSION_CODES;
+      import android.os.Bundle;
+      import android.util.DisplayMetrics;
+      import android.view.WindowMetrics;
+      import androidx.annotation.NonNull;
+
+      import com.google.android.gms.ads.MobileAds;
+      import com.google.android.gms.ads.initialization.InitializationStatus;
+      import com.google.android.gms.ads.initialization.OnInitializationCompleteListener;
+			import com.google.android.gms.ads.interstitial.InterstitialAd;
+      import com.google.android.gms.ads.interstitial.InterstitialAdLoadCallback;
+      import com.google.android.gms.ads.AdRequest;
+      import com.google.android.gms.ads.LoadAdError;
+			import com.google.android.gms.ads.RequestConfiguration;
+      import com.google.android.gms.ads.FullScreenContentCallback;
+			import com.google.android.gms.ads.OnUserEarnedRewardListener;
+			import com.google.android.gms.ads.AdError;
+      import com.google.android.gms.ads.AdRequest;
+      import com.google.android.gms.ads.AdSize;
+      import com.google.android.gms.ads.AdView;
+			import com.google.android.gms.ads.AdListener;
+      import com.google.android.gms.ads.rewarded.RewardItem;
+			import com.google.android.gms.ads.rewarded.RewardedAd;
+			import com.google.android.gms.ads.rewarded.RewardedAdLoadCallback;
+    </insert>
+  </gameActivityImportAdditions>
+  <gameActivityClassAdditions>
+    <insert>
+      <![CDATA[
+      // --------------- AdMob Begin
+      private InterstitialAd mInterstitialAd = null;
+
+      private PopupWindow adPopupWindow;
+      private AdView adView;
+      private boolean adInit = false;
+      private LinearLayout adLayout;
+      private int adGravity = Gravity.BOTTOM;
+
+      /** true when the application has requested that an ad be displayed */
+      private boolean adWantsToBeShown = false;
+
+      /** true when an ad is available to be displayed */
+      private boolean adIsAvailable = false;
+
+      /** true when an ad request is in flight */
+      private boolean adIsRequested = false;
+
+      //Rewarded Video Ads
+      private boolean isRewardedAdLoaded = false;
+      private boolean isRewardedAdRequested = false;
+      private RewardedAd rewardedVideoAd;
+    
+      //Calling *.cpp load reward ads code
+      public static native void CPPRewardAd(int index);
+      public static native void CPPUserEarnRewardAd(String rewardType, int amount);
+
+      public void ShowAdBoxInterstitial() {
+        if(mInterstitialAd != null)
+          mInterstitialAd.show(this);
+        else
+          Log.debug("The interstitial ad wasn't ready yet.");
+      }
+      
+      public void LoadAdInterstitial(String AdMobAdUnitID) {
+        AdRequest adRequest = new AdRequest.Builder().build();
+        InterstitialAd.load(this, AdMobAdUnitID, adRequest,
+            new InterstitialAdLoadCallback() {
+          @Override
+          public void onAdLoaded(@NonNull InterstitialAd interstitialAd) {
+            Log.debug("onAdLoaded");
+            mInterstitialAd = interstitialAd;
+            ShowAdBoxInterstitial();
+          }
+
+          @Override
+          public void onAdFailedToLoad(@NonNull LoadAdError loadAdError) {
+            // Handle the error
+            Log.debug("onAdFailedToLoad");
+            Log.debug(loadAdError.toString());
+            mInterstitialAd = null;
+          }
+        });
+      }
+      
+      public void AndroidThunkJava_ShowAdBoxInterstitial(String AdMobAdUnitID)
+      {
+        Log.debug("AndroidThunkJava_ShowAdBoxInterstitial: " + AdMobAdUnitID);
+        final String _AdMobAdUnitID = AdMobAdUnitID;
+        final GameActivity _this = this;
+        runOnUiThread(new Runnable() {
+          public void run() {
+            _this.LoadAdInterstitial(_AdMobAdUnitID);
+          }
+        });
+      }
+
+      private void updateAdVisibility(boolean loadIfNeeded)
+      {
+        if (!adInit || (adPopupWindow == null))
+        {
+          return;
+        }
+
+        // request an ad if we don't have one available or requested, but would like one
+        if (adWantsToBeShown && !adIsAvailable && !adIsRequested && loadIfNeeded)
+        {
+          AdRequest adRequest = new AdRequest.Builder().build();		// add test devices here
+          _activity.adView.loadAd(adRequest);
+
+          adIsRequested = true;
+        }
+
+        if (adIsAvailable && adWantsToBeShown)
+        {
+          if (adPopupWindow.isShowing())
+          {
+            return;
+          }
+
+          adPopupWindow.showAtLocation(activityLayout, adGravity, 0, 0);
+          // don't call update on 7.0 to work around this issue: https://code.google.com/p/android/issues/detail?id=221001
+          if (ANDROID_BUILD_VERSION != 24) {
+            adPopupWindow.update();
+          }
+        }
+        else
+        {
+          if (!adPopupWindow.isShowing())
+          {
+            return;
+          }
+
+          adPopupWindow.dismiss();
+          adPopupWindow.update();
+        }
+      }
+
+      public void AndroidThunkJava_ShowAdBoxBanner(String AdMobAdUnitID)
+      {
+        Log.debug("AndroidThunkJava_ShowAdBoxBanner: " + AdMobAdUnitID);
+        // adGravity = bShowOnBottonOfScreen ? Gravity.BOTTOM : Gravity.TOP;
+
+        if (adInit)
+        {
+          // already created, make it visible
+          _activity.runOnUiThread(new Runnable()
+          {
+            @Override
+            public void run()
+            {
+              if ((adPopupWindow == null) || adPopupWindow.isShowing())
+              {
+                return;
+              }
+
+              adWantsToBeShown = true;
+              updateAdVisibility(true);
+            }
+          });
+
+          return;
+        }
+
+        // init our AdMob window
+        adView = new AdView(this);
+        adView.setAdUnitId(AdMobAdUnitID);
+        adView.setAdSize(AdSize.BANNER);
+
+        if (adView != null)
+        {
+          _activity.runOnUiThread(new Runnable()
+          {
+            @Override
+            public void run()
+            {
+              adInit = true;
+
+              final DisplayMetrics dm = getResources().getDisplayMetrics();
+              final float scale = dm.density;
+              adPopupWindow = new PopupWindow(_activity);
+              adPopupWindow.setWidth((int)(320*scale));
+              adPopupWindow.setHeight((int)(50*scale));
+              adPopupWindow.setClippingEnabled(false);
+
+              adLayout = new LinearLayout(_activity);
+
+              final int padding = (int)(-5*scale);
+              adLayout.setPadding(padding,padding,padding,padding);
+
+              MarginLayoutParams params = new MarginLayoutParams(LayoutParams.WRAP_CONTENT, LayoutParams.WRAP_CONTENT);;
+
+              params.setMargins(0,0,0,0);
+
+              adLayout.setOrientation(LinearLayout.VERTICAL);
+              adLayout.addView(adView, params);
+              adPopupWindow.setContentView(adLayout);
+
+              // set up our ad callbacks
+              _activity.adView.setAdListener(new AdListener()
+              {
+                @Override
+                public void onAdLoaded()
+                {
+                  adIsAvailable = true;
+                  adIsRequested = false;
+
+                  updateAdVisibility(true);
+                }
+
+                
+              });
+
+              adWantsToBeShown = true;
+              updateAdVisibility(true);
+            }
+          });
+        }
+      }
+
+      public void AndroidThunkJava_CloseAdBoxBanner()
+      {
+        Log.debug("In AndroidThunkJava_CloseAdBoxBanner");
+
+        if (!adInit)
+        {
+          return;
+        }
+
+        // currently the same as hide.  should we do a full teardown?
+        _activity.runOnUiThread(new Runnable()
+        {
+          @Override
+          public void run()
+          {
+            adWantsToBeShown = false;
+            updateAdVisibility(true);
+          }
+        });
+      }
+
+      // Rewarded Functionalities --------------------------------------------------------------------------------------------------------------
+      public boolean AndroidThunkJava_IsRewardedVideoAvailable_AdMob() {
+        return isRewardedAdLoaded;
+      }
+
+      public boolean AndroidThunkJava_IsRewardedVideoRequested_AdMob() {
+        return isRewardedAdRequested;
+      }
+
+      public void AndroidThunkJava_LoadRewardedVideo_AdMob(String AdMobAdUnitID) {
+        if (isRewardedAdRequested) {
+          return;
+        }
+
+        final String _AdMobAdUnitID = AdMobAdUnitID;
+
+        Log.debug("Load function | Rewarded video is called ");
+        isRewardedAdRequested = true;
+        isRewardedAdLoaded = false;
+
+        final AdRequest RewardAdRequest = new AdRequest.Builder().build();
+
+        _activity.runOnUiThread(new Runnable() {
+          @Override
+          public void run() {
+            RewardedAd.load(_activity,
+                _AdMobAdUnitID,
+                RewardAdRequest,
+                new RewardedAdLoadCallback() {
+                  @Override
+                  public void onAdLoaded(@NonNull RewardedAd rewardedAd) {
+                    Log.debug("Load function | Rewarded video is loaded ");
+                    rewardedVideoAd = rewardedAd;
+                    isRewardedAdLoaded = true;
+                    isRewardedAdRequested = false;
+                    CPPRewardAd(1);
+                  }
+
+                  @Override
+                  public void onAdFailedToLoad(@NonNull LoadAdError loadAdError) {
+                    Log.debug(" Load function | Rewarded video is failed to load error: " + loadAdError);
+                    rewardedVideoAd = null;
+                    isRewardedAdLoaded = false;
+                    isRewardedAdRequested = false;
+                    CPPRewardAd(2);
+                  }
+                }
+
+            );
+
+          }
+        });
+      }
+
+      public void AndroidThunkJava_PlayRewardedVideo_AdMob() {
+        Log.debug("call play reward video ads funtion");
+        if (isRewardedAdLoaded) {
+          Log.debug("rewarded ad is  loaded");
+          isRewardedAdLoaded = false;
+
+          _activity.runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+              rewardedVideoAd.setFullScreenContentCallback(
+                  new FullScreenContentCallback() {
+                    @Override
+                    public void onAdShowedFullScreenContent() {
+                      // Called when ad is shown.
+                      CPPRewardAd(3);
+
+                    }
+
+                    @Override
+                    public void onAdFailedToShowFullScreenContent(AdError adError) {
+                      // Called when ad fails to show.
+
+                      // Don't forget to set the ad reference to null so you
+                      // don't show the ad a second time.
+                      rewardedVideoAd = null;
+                      CPPRewardAd(4);
+
+                    }
+
+                    @Override
+                    public void onAdDismissedFullScreenContent() {
+                      // Called when ad is dismissed.
+                      // Don't forget to set the ad reference to null so you
+                      // don't show the ad a second time.
+                      rewardedVideoAd = null;
+
+                      // Preload the next rewarded ad.
+                      // _activity.loadRewardedAd();
+                      CPPRewardAd(5);
+                    }
+                  });
+              Activity activityContext = _activity;
+              rewardedVideoAd.show(
+                  activityContext,
+                  new OnUserEarnedRewardListener() {
+                    @Override
+                    public void onUserEarnedReward(@NonNull RewardItem rewardItem) {
+                      // Handle the reward.
+
+                      int rewardAmount = rewardItem.getAmount();
+                      String rewardType = rewardItem.getType();
+                      CPPUserEarnRewardAd(rewardType, rewardAmount);
+                    }
+                  });
+
+            }
+          });
+        } else {
+          Log.debug("rewarded ad is not loaded");
+        }
+      }
+      ]]>
+    </insert>
+  </gameActivityClassAdditions>
+  <!-- optional additions to GameActivity onCreate in GameActivity.java -->
+  <gameActivityOnCreateAdditions>
+    <insert>
+      RequestConfiguration AdMobConfig = new RequestConfiguration.Builder().setTestDeviceIds(Arrays.asList("936B3CA3E1480617035F6B4CA340CADC")).build();
+			MobileAds.setRequestConfiguration(AdMobConfig);
+      MobileAds.initialize(this, new OnInitializationCompleteListener() {
+        @Override
+        public void onInitializationComplete(InitializationStatus initializationStatus) {}
+      });
+    </insert>
+  </gameActivityOnCreateAdditions>
+</root>
