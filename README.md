@@ -97,4 +97,17 @@ Index value 2 is for Reward.
 
 > That’s all and thanks for your careful reading.
 
-[![](https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=XXX)
+# Donate
+
+## Bitcoin
+
+![donate_btc](https://github.com/user-attachments/assets/4660ef37-d75e-457c-8cb8-45f819767c62)
+
+bc1qxp3thny294s79vhm0rt48j8wp4ssv4fppks6kz
+
+## USDT (ERC20)
+
+![donate_erc20](https://github.com/user-attachments/assets/3d72f2f6-aa3f-4d22-bc6a-1bc82cc4d5b2)
+
+0x6Db413e5cE07a6C2DaD6bB4D864Ab05695D1c1bC
+
